@@ -1,0 +1,23 @@
+{{> header}}
+{{> menu}}
+<main>
+    <h1>Benvingut a Sakila</h1>
+    
+    <h2>Últimes Categories</h2>
+    <ul>
+        {{#each categories}}
+            <li>{{this.name}}</li>
+        {{/each}}
+    </ul>
+
+    <h2>Pel·lícules Destacades</h2>
+    <div class="grid">
+        {{#each movies}}
+            <div class="card">
+                <h3>{{this.title}} ({{this.release_year}})</h3>
+                <p><strong>Actors:</strong> {{this.actors}}</p>
+            </div>
+        {{/each}}
+    </div>
+</main>
+{{> footer}}
