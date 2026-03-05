@@ -42,8 +42,35 @@ app.get('/customers', async (req, res) => {
 });
 
 // 5. RUTA PRINCIPAL
-app.get('/', (req, res) => {
-    res.render('index');
+app.get('/', async (req, res) => {
+    try {
+        // Consultamos las 5 primeras películas
+        const [movies] = await pool.query('SELECT title, release_year FROM film LIMIT 5');
+        // Consultamos las 5 primeras categorías
+        const [categories] = await pool.query('SELECT name FROM category LIMIT 5');
+        
+        // Pasamos los datos a index.hbs
+        res.render('index', { 
+            titolPagina: 'Inici', 
+            movies: movies, 
+            categories: categories 
+        });
+    } catch (error) {
+        console.error("Error en la home:", error);
+        res.render('index', { titolPagina: 'Inici' });
+    }
+});
+
+// 6. rutas a la base de datos
+app.get('/', async (req, res) => {
+    try {
+        const [movies] = await pool.query('SELECT title FROM film LIMIT 5');
+        const [categories] = await pool.query('SELECT name FROM category LIMIT 5');
+        res.render('index', { movies, categories }); 
+    } catch (error) {
+        console.error(error);
+        res.render('index'); // Carga la página aunque falle la DB
+    }
 });
 
 // ACTIVAR SERVIDOR
