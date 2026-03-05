@@ -13,7 +13,8 @@ const commonData = JSON.parse(fs.readFileSync(path.join(__dirname, 'data/common.
 // Configuració Handlebars
 app.engine('hbs', engine({
     extname: '.hbs',
-    defaultLayout: false // Desactivem el layout per defecte per fer servir les subvistes manualment
+    defaultLayout: false ,
+    partialsDir: path.join(__dirname, 'views/partials') // Desactivem el layout per defecte per fer servir les subvistes manualment
 }));
 app.set('view engine', 'hbs');
 app.set('views', path.join(__dirname, 'views'));
@@ -24,8 +25,8 @@ app.use(express.static(path.join(__dirname, '../public')));
 // Connexió a MySQL (Ajusta l'usuari i la contrasenya del teu Proxmox/Local)
 const pool = mysql.createPool({
     host: 'localhost',
-    user: 'root',
-    password: '', 
+    user: 'super',
+    password: '1234', 
     database: 'sakila'
 });
 
