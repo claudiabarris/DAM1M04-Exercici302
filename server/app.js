@@ -1,103 +1,76 @@
 const express = require('express');
-const { engine } = require('express-handlebars');
-const mysql = require('mysql2/promise');
-const fs = require('fs');
+const hbs = require('hbs');
 const path = require('path');
 
+// Com que db.js i app.js estan a la mateixa carpeta 'server', fem servir './db'
+const db = require('./db'); 
+
+// La ruta cap a common.json dins de la carpeta 'server/data'
+const commonData = require('./data/common.json');
+
 const app = express();
-const PORT = 3000;
 
-// Carregar dades comunes
-const commonData = JSON.parse(fs.readFileSync(path.join(__dirname, 'data/common.json'), 'utf8'));
-
-// Configuració Handlebars
-app.engine('hbs', engine({
-    extname: '.hbs',
-    defaultLayout: false ,
-    partialsDir: path.join(__dirname, 'views/partials') // Desactivem el layout per defecte per fer servir les subvistes manualment
-}));
 app.set('view engine', 'hbs');
+
+// Configuraci贸 de carpetes (app.js ja est脿 dins de 'server')
 app.set('views', path.join(__dirname, 'views'));
+hbs.registerPartials(path.join(__dirname, 'views/partials'));
 
-// Arxius estàtics
+// La carpeta 'public' est脿 fora de 'server', pugem un nivell amb '../'
 app.use(express.static(path.join(__dirname, '../public')));
-
-// Connexió a MySQL (Ajusta l'usuari i la contrasenya del teu Proxmox/Local)
-const pool = mysql.createPool({
-    host: 'localhost',
-    user: 'super',
-    password: '1234', 
-    database: 'sakila'
-});
 
 // --- RUTES ---
 
-// B) Ruta / (Pàgina principal)
+// B) P脿gina Principal -> index.hbs (5 primeres pel路l铆cules i 5 categories)
 app.get('/', async (req, res) => {
     try {
-        // 5 primeres pel·lícules amb actors (usant GROUP_CONCAT)
-        const [movies] = await pool.query(`
-            SELECT f.title, f.release_year, 
-                   (SELECT GROUP_CONCAT(CONCAT(a.first_name, ' ', a.last_name) SEPARATOR ', ')
-                    FROM film_actor fa
-                    JOIN actor a ON fa.actor_id = a.actor_id
-                    WHERE fa.film_id = f.film_id) AS actors
-            FROM film f LIMIT 5
-        `);
-        // 5 primeres categories
-        const [categories] = await pool.query(`SELECT name FROM category LIMIT 5`);
-
-        res.render('index', { ...commonData, titolPagina: 'Inici', movies, categories });
-    } catch (error) {
-        console.error(error);
-        res.status(500).send('Error del servidor');
+        const [movies] = await db.query(`
+            SELECT f.title, f.release_year, GROUP_CONCAT(a.first_name SEPARATOR ', ') as actors 
+            FROM film f 
+            JOIN film_actor fa ON f.film_id = fa.film_id 
+            JOIN actor a ON fa.actor_id = a.actor_id 
+            GROUP BY f.film_id LIMIT 5`);
+        const [categories] = await db.query('SELECT name FROM category LIMIT 5');
+        res.render('index', { ...commonData, movies, categories });
+    } catch (err) { 
+        res.status(500).send("Error a la Home: " + err.message); 
     }
 });
 
-// C) Ruta /movies (Pel·lícules)
+// C) P脿gina Pel路l铆cules -> informe.hbs (15 primeres pel路l铆cules amb actors)
 app.get('/movies', async (req, res) => {
     try {
-        const [movies] = await pool.query(`
-            SELECT f.title, f.release_year, f.description,
-                   (SELECT GROUP_CONCAT(CONCAT(a.first_name, ' ', a.last_name) SEPARATOR ', ')
-                    FROM film_actor fa
-                    JOIN actor a ON fa.actor_id = a.actor_id
-                    WHERE fa.film_id = f.film_id) AS actors
-            FROM film f LIMIT 15
-        `);
-        res.render('movies', { ...commonData, titolPagina: 'Pel·lícules', movies });
-    } catch (error) {
-        console.error(error);
-        res.status(500).send('Error del servidor');
+        const [movies] = await db.query(`
+            SELECT f.title, f.release_year, GROUP_CONCAT(a.first_name, ' ', a.last_name SEPARATOR ', ') as actors 
+            FROM film f 
+            JOIN film_actor fa ON f.film_id = fa.film_id 
+            JOIN actor a ON fa.actor_id = a.actor_id 
+            GROUP BY f.film_id LIMIT 15`);
+        res.render('informe', { ...commonData, movies });
+    } catch (err) { 
+        res.status(500).send("Error a Movies: " + err.message); 
     }
 });
 
-// D) Ruta /customers (Clients i lloguers)
+// D) Ruta Customers -> customers.hbs (25 clients amb els seus 5 lloguers)
 app.get('/customers', async (req, res) => {
     try {
-        // Obtenim els 25 primers clients
-        const [customers] = await pool.query(`SELECT customer_id, first_name, last_name FROM customer LIMIT 25`);
-
-        // Busquem els 5 primers lloguers per a cada client
-        const customersWithRentals = await Promise.all(customers.map(async (customer) => {
-            const [rentals] = await pool.query(`
-                SELECT f.title, r.rental_date
-                FROM rental r
-                JOIN inventory i ON r.inventory_id = i.inventory_id
-                JOIN film f ON i.film_id = f.film_id
-                WHERE r.customer_id = ?
-                ORDER BY r.rental_date DESC LIMIT 5
-            `, [customer.customer_id]);
-            return { ...customer, rentals };
-        }));
-
-        res.render('customers', { ...commonData, titolPagina: 'Clients', customers: customersWithRentals });
-    } catch (error) {
-        console.error(error);
-        res.status(500).send('Error del servidor');
+        // 1. Obtenim els 25 primers clients
+        const [customers] = await db.query('SELECT customer_id, first_name, last_name FROM customer LIMIT 25');
+        
+        // 2. Per a cada client, busquem els seus 5 primers lloguers
+        for (let c of customers) {
+            const [rentals] = await db.query(
+                'SELECT rental_date FROM rental WHERE customer_id = ? LIMIT 5', 
+                [c.customer_id]
+            );
+            c.rentals = rentals; // Afegim l'array de lloguers a l'objecte del client
+        }
+        
+        res.render('customers', { ...commonData, customers });
+    } catch (err) { 
+        res.status(500).send("Error a Customers: " + err.message); 
     }
 });
 
-app.listen(PORT, () => {
-    console.log(`Servidor engegat a http://localhost:${PORT}`);
-});
+app.listen(3000, () => console.log('馃殌 Servidor funcionant a http://localhost:3000'));
