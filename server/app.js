@@ -9,13 +9,16 @@ const port = 3000;
 // 1. CONFIGURAR HANDLEBARS
 app.engine('hbs', engine({
     extname: '.hbs',
-    defaultLayout: false
+    defaultLayout: false,
+    // Si usas partials (header, footer), asegúrate de que esta carpeta existe
+    partialsDir: path.join(__dirname, 'views/partials') 
 }));
 app.set('view engine', 'hbs');
-app.set('views', path.join(__dirname, 'views')); // Esto es vital para que encuentre la carpeta
+app.set('views', path.join(__dirname, 'views'));
 
 // 2. CONTENIDOS ESTÁTICOS Y CACHE
-app.use(express.static('public'));
+// Usamos path.join para evitar errores de rutas en Linux/Proxmox
+app.use(express.static(path.join(__dirname, '../public'))); 
 app.use((req, res, next) => {
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
   next();
@@ -26,30 +29,20 @@ const pool = mysql.createPool({
     host: 'localhost',
     user: 'super',
     password: '1234',
-    database: 'sakila'
+    database: 'sakila',
+    waitForConnections: true,
+    connectionLimit: 10
 });
 
-// 4. RUTA PARA CUSTOMERS (La que te da el error)
-app.get('/customers', async (req, res) => {
-    try {
-        const [rows] = await pool.query('SELECT first_name, last_name FROM customer LIMIT 25');
-        // Renderiza el archivo 'customers.hbs' que tienes en la carpeta views
-        res.render('customers', { customers: rows }); 
-    } catch (error) {
-        console.error(error);
-        res.status(500).send("Error en la base de datos");
-    }
-});
+// --- RUTES ---
 
-// 5. RUTA PRINCIPAL
+// A) RUTA PRINCIPAL (Home)
 app.get('/', async (req, res) => {
     try {
-        // Consultamos las 5 primeras películas
+        // Consultamos películas y categorías en paralelo para mayor velocidad
         const [movies] = await pool.query('SELECT title, release_year FROM film LIMIT 5');
-        // Consultamos las 5 primeras categorías
         const [categories] = await pool.query('SELECT name FROM category LIMIT 5');
         
-        // Pasamos los datos a index.hbs
         res.render('index', { 
             titolPagina: 'Inici', 
             movies: movies, 
@@ -57,29 +50,38 @@ app.get('/', async (req, res) => {
         });
     } catch (error) {
         console.error("Error en la home:", error);
-        res.render('index', { titolPagina: 'Inici' });
+        res.render('index', { titolPagina: 'Inici', movies: [], categories: [] });
     }
 });
 
-// 6. rutas a la base de datos
-app.get('/', async (req, res) => {
+// B) RUTA CLIENTS
+app.get('/customers', async (req, res) => {
     try {
-        const [movies] = await pool.query('SELECT title FROM film LIMIT 5');
-        const [categories] = await pool.query('SELECT name FROM category LIMIT 5');
-        res.render('index', { movies, categories }); 
+        // Obtenemos nombre, apellido y email (asegúrate de que estas columnas existen)
+        const [rows] = await pool.query('SELECT first_name, last_name, email FROM customer LIMIT 25');
+        
+        res.render('customers', { 
+            titolPagina: 'Clients', 
+            customers: rows 
+        }); 
     } catch (error) {
-        console.error(error);
-        res.render('index'); // Carga la página aunque falle la DB
+        console.error("Error en clientes:", error);
+        res.status(500).send("Error al cargar los clientes");
     }
 });
 
 // ACTIVAR SERVIDOR
 const httpServer = app.listen(port, () => {
-    console.log(`Servidor en: http://localhost:${port}`);
+    console.log(`Servidor engegat a: http://localhost:${port}`);
 });
 
-// APAGADO LIMPIO
-process.on('SIGINT', () => {
-    httpServer.close();
-    process.exit(0);
-});
+// APAGADO LIMPIO (SIGINT y SIGTERM para Proxmox)
+const shutDown = () => {
+    console.log('Tancant servidor...');
+    httpServer.close(() => {
+        process.exit(0);
+    });
+};
+
+process.on('SIGINT', shutDown);
+process.on('SIGTERM', shutDown);
