@@ -10,21 +10,19 @@ const port = 3000;
 app.engine('hbs', engine({
     extname: '.hbs',
     defaultLayout: false,
-    // Si usas partials (header, footer), asegúrate de que esta carpeta existe
     partialsDir: path.join(__dirname, 'views/partials') 
 }));
 app.set('view engine', 'hbs');
 app.set('views', path.join(__dirname, 'views'));
 
 // 2. CONTENIDOS ESTÁTICOS Y CACHE
-// Usamos path.join para evitar errores de rutas en Linux/Proxmox
-app.use(express.static(path.join(__dirname, '../public'))); 
+app.use(express.static(path.join(__dirname, 'public'))); 
 app.use((req, res, next) => {
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
   next();
 });
 
-// 3. CONEXIÓN MYSQL
+// 3. CONEXIÓN MYSQL (Pool de conexiones)
 const pool = mysql.createPool({
     host: 'localhost',
     user: 'super',
@@ -36,15 +34,15 @@ const pool = mysql.createPool({
 
 // --- RUTES ---
 
-// A) RUTA PRINCIPAL (Home)
+// A) RUTA PRINCIPAL (Home - index.hbs)
 app.get('/', async (req, res) => {
     try {
-        // Consultamos películas y categorías en paralelo para mayor velocidad
+        // Obtenemos películas y categorías para la página de inicio
         const [movies] = await pool.query('SELECT title, release_year FROM film LIMIT 5');
         const [categories] = await pool.query('SELECT name FROM category LIMIT 5');
         
         res.render('index', { 
-            titolPagina: 'Inici', 
+            titolPagina: 'Benvinguts a Sakila', 
             movies: movies, 
             categories: categories 
         });
@@ -54,19 +52,34 @@ app.get('/', async (req, res) => {
     }
 });
 
-// B) RUTA CLIENTS
+// B) RUTA CLIENTS (customers.hbs)
 app.get('/customers', async (req, res) => {
     try {
-        // Obtenemos nombre, apellido y email (asegúrate de que estas columnas existen)
         const [rows] = await pool.query('SELECT first_name, last_name, email FROM customer LIMIT 25');
         
         res.render('customers', { 
-            titolPagina: 'Clients', 
+            titolPagina: 'Llistat de Clients', 
             customers: rows 
         }); 
     } catch (error) {
         console.error("Error en clientes:", error);
-        res.status(500).send("Error al cargar los clientes");
+        res.status(500).send("Error al carregar els clients");
+    }
+});
+
+// C) RUTA PEL·LÍCULES (movies.hbs)
+app.get('/movies', async (req, res) => {
+    try {
+        // Esta consulta es la que alimenta tu nuevo movie.hbs
+        const [rows] = await pool.query('SELECT title, release_year FROM film LIMIT 30');
+        
+        res.render('movies', { 
+            titolPagina: 'Catàleg de Pel·lícules', 
+            movies: rows 
+        }); 
+    } catch (error) {
+        console.error("Error en movies:", error);
+        res.status(500).send("Error al carregar les pel·lícules");
     }
 });
 
@@ -75,7 +88,7 @@ const httpServer = app.listen(port, () => {
     console.log(`Servidor engegat a: http://localhost:${port}`);
 });
 
-// APAGADO LIMPIO (SIGINT y SIGTERM para Proxmox)
+// APAGADO LIMPIO
 const shutDown = () => {
     console.log('Tancant servidor...');
     httpServer.close(() => {
@@ -83,5 +96,4 @@ const shutDown = () => {
     });
 };
 
-process.on('SIGINT', shutDown);
-process.on('SIGTERM', shutDown);
+process.
