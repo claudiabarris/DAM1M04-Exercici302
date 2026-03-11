@@ -96,4 +96,5 @@ const shutDown = () => {
     });
 };
 
-process.
+process.on('SIGINT', shutDown);
+process.on('SIGTERM', shutDown);
