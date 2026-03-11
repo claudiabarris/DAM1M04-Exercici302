@@ -1,4 +1,33 @@
 {{> header}}
 {{> menu}}
 
+<main>
+    <h1>Llistat de Pel·lícules</h1>
+    
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Títol</th>
+                    <th>Any de llançament</th>
+                    <th>Accions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{#each movies}}
+                <tr>
+                    <td><strong>{{this.title}}</strong></td>
+                    <td>{{this.release_year}}</td>
+                    <td><button class="btn-info">Veure detalls</button></td>
+                </tr>
+                {{/each}}
+            </tbody>
+        </table>
+    </div>
+
+    {{#unless movies}}
+        <p>No s'han trobat pel·lícules.</p>
+    {{/unless}}
+</main>
+
 {{> footer}}
