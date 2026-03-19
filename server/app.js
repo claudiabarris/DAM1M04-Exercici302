@@ -70,7 +70,8 @@ app.get('/customers', async (req, res) => {
 // C) RUTA PEL·LÍCULES (movies.hbs)
 app.get('/movies', async (req, res) => {
     try {
-        const [movies] = await db.query(`
+        // CORRECCIÓN 1: Cambiamos 'db' por 'pool'
+        const [movies] = await pool.query(`
             SELECT f.title, f.description, f.release_year, f.rating, 
                    GROUP_CONCAT(CONCAT(a.first_name, ' ', a.last_name) SEPARATOR ', ') as actors 
             FROM film f 
@@ -79,8 +80,11 @@ app.get('/movies', async (req, res) => {
             GROUP BY f.film_id 
             LIMIT 15`);
             
-        // Canviem 'informe' per 'movies' segons l'enunciat
-        res.render('movies', { ...commonData, movies });
+        // CORRECCIÓN 2: Eliminamos 'commonData' y pasamos el título de la página
+        res.render('movies', { 
+            titolPagina: 'Llistat de Pel·lícules', // Mantenemos la estructura de tus otras rutas
+            movies: movies 
+        });
     } catch (err) { 
         res.status(500).send("Error a la ruta /movies: " + err.message); 
     }
