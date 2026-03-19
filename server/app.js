@@ -70,16 +70,19 @@ app.get('/customers', async (req, res) => {
 // C) RUTA PEL·LÍCULES (movies.hbs)
 app.get('/movies', async (req, res) => {
     try {
-        // Esta consulta es la que alimenta tu nuevo movie.hbs
-        const [rows] = await pool.query('SELECT title, release_year FROM film LIMIT 30');
-        
-        res.render('movies', { 
-            titolPagina: 'Catàleg de Pel·lícules', 
-            movies: rows 
-        }); 
-    } catch (error) {
-        console.error("Error en movies:", error);
-        res.status(500).send("Error al carregar les pel·lícules");
+        const [movies] = await db.query(`
+            SELECT f.title, f.description, f.release_year, f.rating, 
+                   GROUP_CONCAT(CONCAT(a.first_name, ' ', a.last_name) SEPARATOR ', ') as actors 
+            FROM film f 
+            LEFT JOIN film_actor fa ON f.film_id = fa.film_id 
+            LEFT JOIN actor a ON fa.actor_id = a.actor_id 
+            GROUP BY f.film_id 
+            LIMIT 15`);
+            
+        // Canviem 'informe' per 'movies' segons l'enunciat
+        res.render('movies', { ...commonData, movies });
+    } catch (err) { 
+        res.status(500).send("Error a la ruta /movies: " + err.message); 
     }
 });
 
