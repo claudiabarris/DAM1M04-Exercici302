@@ -9,16 +9,18 @@
             <thead>
                 <tr>
                     <th>Títol</th>
-                    <th>Any de llançament</th>
-                    <th>Accions</th>
+                    <th>Any</th>
+                    <th>Classificació</th> <th>Actors principals</th> <th>Accions</th>
                 </tr>
             </thead>
             <tbody>
                 {{#each movies}}
                 <tr>
-                    <td><strong>{{this.title}}</strong></td>
+                    <td>
+                        <strong>{{this.title}}</strong><br>
+                        <small>{{this.description}}</small> </td>
                     <td>{{this.release_year}}</td>
-                    <td><button class="btn-info">Veure detalls</button></td>
+                    <td>{{this.rating}}</td> <td>{{this.actors}}</td> <td><button class="btn-info">Veure detalls</button></td>
                 </tr>
                 {{/each}}
             </tbody>
