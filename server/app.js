@@ -7,18 +7,17 @@ const app = express();
 const port = 3000;
 
 // 1. CONFIGURAR HANDLEBARS
-// 1. CONFIGURAR HANDLEBARS
 app.engine('hbs', engine({
     extname: '.hbs',
-    defaultLayout: 'main', // Activamos el layout principal
-    layoutsDir: path.join(__dirname, 'views/layouts'), // Le decimos dónde está
+    defaultLayout: false, // Volvemos a false porque usas partials (header, menu, footer)
     partialsDir: path.join(__dirname, 'views/partials') 
 }));
 app.set('view engine', 'hbs');
 app.set('views', path.join(__dirname, 'views'));
 
 // 2. CONTENIDOS ESTÁTICOS Y CACHE
-app.use(express.static(path.join(__dirname, 'public')));
+// ¡CORRECCIÓN CLAVE!: Ponemos '../public' para que salga de la carpeta 'server' y encuentre el CSS
+app.use(express.static(path.join(__dirname, '../public')));
 app.use((req, res, next) => {
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
   next();
@@ -39,12 +38,13 @@ const pool = mysql.createPool({
 // A) RUTA PRINCIPAL (Home - index.hbs)
 app.get('/', async (req, res) => {
     try {
-        // Obtenemos películas y categorías para la página de inicio
         const [movies] = await pool.query('SELECT title, release_year FROM film LIMIT 5');
         const [categories] = await pool.query('SELECT name FROM category LIMIT 5');
         
         res.render('index', { 
             titolPagina: 'Benvinguts a Sakila', 
+            titolGlobal: 'Sakila Movies',
+            any: new Date().getFullYear(),
             movies: movies, 
             categories: categories 
         });
@@ -61,6 +61,8 @@ app.get('/customers', async (req, res) => {
         
         res.render('customers', { 
             titolPagina: 'Llistat de Clients', 
+            titolGlobal: 'Sakila Movies',
+            any: new Date().getFullYear(),
             customers: rows 
         }); 
     } catch (error) {
@@ -72,7 +74,6 @@ app.get('/customers', async (req, res) => {
 // C) RUTA PEL·LÍCULES (movies.hbs)
 app.get('/movies', async (req, res) => {
     try {
-        // CORRECCIÓN 1: Cambiamos 'db' por 'pool'
         const [movies] = await pool.query(`
             SELECT f.title, f.description, f.release_year, f.rating, 
                    GROUP_CONCAT(CONCAT(a.first_name, ' ', a.last_name) SEPARATOR ', ') as actors 
@@ -82,9 +83,10 @@ app.get('/movies', async (req, res) => {
             GROUP BY f.film_id 
             LIMIT 15`);
             
-        // CORRECCIÓN 2: Eliminamos 'commonData' y pasamos el título de la página
         res.render('movies', { 
-            titolPagina: 'Llistat de Pel·lícules', // Mantenemos la estructura de tus otras rutas
+            titolPagina: 'Llistat de Pel·lícules', 
+            titolGlobal: 'Sakila Movies',
+            any: new Date().getFullYear(),
             movies: movies 
         });
     } catch (err) { 
