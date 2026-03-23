@@ -7,9 +7,11 @@ const app = express();
 const port = 3000;
 
 // 1. CONFIGURAR HANDLEBARS
+// 1. CONFIGURAR HANDLEBARS
 app.engine('hbs', engine({
     extname: '.hbs',
-    defaultLayout: false,
+    defaultLayout: 'main', // Activamos el layout principal
+    layoutsDir: path.join(__dirname, 'views/layouts'), // Le decimos dónde está
     partialsDir: path.join(__dirname, 'views/partials') 
 }));
 app.set('view engine', 'hbs');
